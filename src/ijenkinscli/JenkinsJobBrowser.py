@@ -3,20 +3,41 @@ Created on Jul 23, 2015
 
 @author: nkoester
 '''
+import pprint
 import signal
 
 import urwid
+from urwid.treetools import TreeWalker
 
 from JenkinsWrapper import JenkinsWrapper
 from URWIDElements import JenkinsInstanceNode, SearchBar,\
     ConsoleOutputPager, JenkinsOptionNode, JenkinsJobNode
+from URWIDElements import JenkinsInstanceTreeWidget
+from URWIDElements import JenkinsJobTreeWidget
 
 
 class JenkinsJobBrowser():
+
+    OPTION_LABEL_JOB_INFO = "Job Info"
+    OPTION_LABEL_BUILD = "Build"
+    OPTION_LABEL_LAST_BUILD_LOG = "Last Build Log"
+
+    COLOR_MAPPING = {
+        'blue': 'SUCCESS',
+        'green': 'SUCCESS',
+        'red': 'FAILED',
+        'yellow': 'UNSTABLE',
+        'aborted': 'ABORTED',
+        'disabled': 'DISABLED',
+        'grey': 'NOTBUILT',
+        'notbuilt': 'NOTBUILT',
+        'building': 'BUILDIONG',
+    }
+
     palette = [
         ('body', urwid.LIGHT_GRAY, urwid.BLACK),
         ('focus', urwid.LIGHT_GRAY, urwid.DARK_BLUE, 'standout'),
-        ('selected', urwid.LIGHT_GRAY, urwid.DARK_BLUE, 'standout'),
+        ('selected', urwid.DARK_MAGENTA, urwid.DARK_CYAN, 'standout'),
 
         ('title', urwid.WHITE, urwid.DARK_BLUE),
         ('head_foot', urwid.WHITE, urwid.DARK_BLUE, ),
@@ -59,7 +80,7 @@ class JenkinsJobBrowser():
         self.pager_term = None
         self.search_bar = None
         self.searchmode = False
-        self.current_joblist = []
+        self.current_jobdict = None
         self.search_result = []
         self.ragequit = False
         self.main_loop = None
@@ -89,14 +110,52 @@ class JenkinsJobBrowser():
 
     def __refresh_jenkins(self):
         # Actually load data from jenkins ...
-        #         self.jenkins = self.create_jenkins(self.host, self.auth, self.proxies, self.ssl_verification)
-        #         job_list_tree, self.current_joblist = self.get_available_jobs(self.jenkins)
-
-        job_list_tree, self.current_joblist = self.jenkins_wrapper.get_available_jobs()
-        self.topnode = JenkinsInstanceNode(job_list_tree)
-        self.listbox = urwid.TreeListBox(urwid.TreeWalker(self.topnode))
+        self.current_jobdict = self.jenkins_wrapper.get_detailed_joblist()
+        self.topnode = JenkinsInstanceNode(self.jobdict2urwiddict(self.current_jobdict))
+        self.listboxcontent = urwid.TreeWalker(self.topnode)
+        self.listbox = urwid.TreeListBox(self.listboxcontent)
         self.listbox.offset_rows = 1
         self.view.body = self.listbox
+
+#         a = self.listbox.body
+#         print a
+#         assert isinstance(a, TreeWalker)
+#
+#         b = self.listbox.body.focus
+#         print b
+#         assert isinstance(b, JenkinsInstanceNode)
+#
+#         import pprint
+#         job_name = "rst-converters-python-0.11-toolkit-nao-naoqi2.1-rsb0.11"
+#         root = self.listbox.body.focus
+#         for id in root.get_child_keys():
+#             if root.get_child_node(id).get_job_name()[1] == job_name:
+#                 print "ASDF:"
+#                 pprint.pprint(root.get_child_node(id).__dict__)
+#
+#         print self.listbox.base_widget
+#
+#         import sys
+#         sys.exit()
+
+    def jobdict2urwiddict(self, detailed_jobdict):
+        retval = {"name": "Available Jobs", "children": []}
+
+        for i, (job_name, info) in enumerate(detailed_jobdict.iteritems()):
+
+            color = info['color']
+
+            if '_anime' in color:
+                color = color.split('_')[0]
+                color = 'building'
+
+            retval['children'].append({"name": (self.COLOR_MAPPING[color], job_name)})
+            retval['children'][i]['children'] = []
+            retval['children'][i]['children'].append({"name": self.OPTION_LABEL_JOB_INFO})
+            retval['children'][i]['children'].append({"name": self.OPTION_LABEL_BUILD})
+            retval['children'][i]['children'].append({"name": self.OPTION_LABEL_LAST_BUILD_LOG})
+
+        return retval
 
     def main(self):
         """Run the program."""
@@ -113,23 +172,13 @@ class JenkinsJobBrowser():
     def search_function(self, search_term):
         self.print_status("search for " + str(search_term))
 
-        self.search_result = []
-        for a_job, _ in self.current_joblist:
+        search_result = []
+        for a_job, _ in self.current_jobdict.iteritems():
             if search_term.lower() in a_job.lower():
-                self.search_result.append(a_job)
+                search_result.append(a_job)
 
-        self.print_status("res:" + str(self.search_result))
-
-        if len(self.search_result) > 0:
-            self.view.focus_position = "body"
-            self.select_job(self.search_result[0])
-
-#
-#             elif k is 'n':
-#                 self.select_job(self.search_result[1])
-#             elif k is 'N':
-#                 self.select_job(self.search_result[0])
-#
+        self.print_status("res:" + str(search_result))
+        return search_result
 
     def show_search_bar(self):
         self.search_bar = SearchBar(self.hide_search_bar, self.search_function)
@@ -161,12 +210,16 @@ class JenkinsJobBrowser():
     def hide_pager_term(self):
         if self.pager_term:
             #             self.loop.widget = self.loop.widget[0]
+            self.pager_term.change_focus(False)
             self.view.body = self.listbox
             self.pager_term = None
             self.print_status("")
 
     def print_status(self, text):
         self.user_input.set_text(text)
+
+    def print_append_status(self, text):
+        self.user_input.set_text(str(self.user_input.get_text()) + text)
 
     def append_status(self, text):
         self.user_input.set_text(self.user_input.get_text()[0] + text)
@@ -184,12 +237,16 @@ class JenkinsJobBrowser():
 
         if self.searchmode:
             if k is 'enter':
-                self.print_status("wooopp")
-            elif k is 'tab':
-                if self.view.focus == self.listbox:
-                    self.view.focus_position = "footer"
-                else:
-                    self.view.focus_position = "body"
+                # self.print_status("wooopp")
+                self.search_result = self.search_function(self.search_bar.get_search_term())
+                self.search_result_selection = -1
+                self.select_next_searchresult()
+            elif k is 'f3':
+                self.select_next_searchresult()
+            elif k in ('esc', 'q'):
+                self.hide_search_bar()
+            elif k in ('tab', "/"):
+                self.view.focus_position = "footer"
 
             return True
 
@@ -201,6 +258,22 @@ class JenkinsJobBrowser():
         elif k is '/':
             self.show_search_bar()
             self.searchmode = True
+
+#         elif k is 'n':
+#
+#             import pprint
+#             job_name = "rsb-opencv-0.11-toolkit-nao-naoqi2.1-rsb0.11"
+#             root = self.listbox.body.focus
+#             self.listbox.get_focus()
+#             self.print_status(str(self.listboxcontent.get_next(self.listboxcontent.get_focus()[1])))
+#             self.listboxcontent.set_focus(self.listboxcontent.get_focus()[1])
+#             self.listbox.body.set_focus(self.listbox.get_focus()[1])
+#             for i, id in enumerate(root.get_child_keys()):
+#                 if root.get_child_node(id).get_job_name()[1] == job_name:
+# self.print_status(pprint.pformat(root.get_child_node(id).__dict__, indent=4))
+# self.print_status(str(i))
+#                     return
+# root.get_child_node(id)._value['name'] = ('selected', root.get_child_node(id)._value['name'][1])
 
         elif k is 'f5':
             self.print_status("Refreshing...")
@@ -215,10 +288,11 @@ class JenkinsJobBrowser():
                 job_name = selected_node.get_job_name()
                 chosen_option = selected_node.get_display_text()
 
-                if chosen_option is JenkinsWrapper.OPTION_LABEL_JOB_INFO:
-                    self.print_status("not implemented :(")
+                if chosen_option is self.OPTION_LABEL_JOB_INFO:
+                    import pprint
+                    self.show_pager_term(pprint.pformat(self.jenkins_wrapper.get_jobs_details(job_name), indent=4))
 
-                elif chosen_option is JenkinsWrapper.OPTION_LABEL_BUILD:
+                elif chosen_option is self.OPTION_LABEL_BUILD:
                     self.print_status("Triggering build of '{}'...".format(job_name))
                     try:
                         result_code = self.jenkins_wrapper.jenkins_build(job_name)
@@ -227,7 +301,7 @@ class JenkinsJobBrowser():
                     except Exception as error:
                         self.print_status("Error when building {}: {}".format(job_name, str(error)))
 
-                elif chosen_option is JenkinsWrapper.OPTION_LABEL_LAST_BUILD_LOG:
+                elif chosen_option is self.OPTION_LABEL_LAST_BUILD_LOG:
                     self.show_pager_term(self.jenkins_wrapper.get_last_build_log(job_name))
 
             # Toggle folding using enter
@@ -243,7 +317,23 @@ class JenkinsJobBrowser():
 
         return True
 
-    def select_job(self, job_name):
-        # TODO: allow to select a job
-        self.print_status("focus: " + str(self.listbox))
+    def select_next_searchresult(self):
+        self.view.focus_position = "body"
+
+        if len(self.search_result) > 0:
+            # increase the counter
+            self.search_result_selection = (self.search_result_selection + 1) if self.search_result_selection < len(self.search_result) - 1 else 0
+
+            job_name = self.search_result[self.search_result_selection]
+
+            self.print_status(str(self.search_result) + " -- select: " + str(job_name))
+            root = self.listbox.body.focus
+            for i, id in enumerate(root.get_child_keys()):
+                if root.get_child_node(id).get_job_name()[1] == job_name:
+                    #                     self.print_append_status("found:" + str(i))
+                    self.print_status(pprint.pformat(root.get_child_node(id).__dict__, indent=4))
+#                     self.print_status("asdf " + str(i))
+#                     self.view.body.set_focus(i)
+#                     self.listboxcontent.set_focus(i)
+                    return
 #         self.listbox.set_focus(??)

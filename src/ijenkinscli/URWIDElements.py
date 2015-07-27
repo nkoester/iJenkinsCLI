@@ -22,8 +22,6 @@ class ConsoleOutputPager(urwid.Terminal):
     def keypress(self, size, key):
         if key in ('esc', 'q', 'Q'):
             self.exit_function()
-#         elif key is 'enter':
-#             pass
         else:
             urwid.Terminal.keypress(self, size, key)
 
@@ -37,13 +35,8 @@ class SearchBar(urwid.Edit):
         self.search_function = search_function
         self.__super.__init__("/")
 
-    def keypress(self, size, key):
-        if key in ('esc', 'ctrl c'):
-            self.exit_function()
-        elif key is 'enter':
-            self.search_function(self.get_text()[0][1:])
-        else:
-            return urwid.Edit.keypress(self, size, key)
+    def get_search_term(self):
+        return self.get_text()[0][1:]
 
 
 class JenkinsInstanceTreeWidget(urwid.TreeWidget):
@@ -54,6 +47,7 @@ class JenkinsInstanceTreeWidget(urwid.TreeWidget):
         self.__super.__init__(node)
         # insert an extra AttrWrap for our own use
         self._w = urwid.AttrWrap(self._w, None)
+#         self._w = urwid.AttrWrap(self._w, 'selected')
         self._w.focus_attr = 'focus'
 
     def get_display_text(self):
@@ -73,19 +67,6 @@ class JenkinsOptionTreeWidget(JenkinsInstanceTreeWidget):
 
     def selectable(self):
         return True
-
-    def keypress(self, size, key):
-        """allow subclasses to intercept keystrokes"""
-        key = self.__super.keypress(size, key)
-        if key:
-            key = self.unhandled_keys(size, key)
-        return key
-
-    def unhandled_keys(self, size, key):
-        if key == " ":
-            pass
-        else:
-            return key
 
 
 class JenkinsOptionNode(urwid.TreeNode):

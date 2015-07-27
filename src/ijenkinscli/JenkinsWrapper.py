@@ -14,9 +14,6 @@ class JenkinsWrapper(object):
     '''
     settings = None
     jenkins = None
-    OPTION_LABEL_JOB_INFO = "Job Info"
-    OPTION_LABEL_BUILD = "Build"
-    OPTION_LABEL_LAST_BUILD_LOG = "Last Build Log"
 
     COLOR_MAPPING = {
         'blue': 'SUCCESS',
@@ -44,25 +41,11 @@ class JenkinsWrapper(object):
                                            auth=self.settings.auth,
                                            verify_ssl_cert=self.settings.ssl_verification)
 
-    def get_available_jobs(self):
-        retval = {"name": "Available Jobs", "children": []}
-        joblist = self.jenkins.all_jobs()
-
-        for i, (job_name, color) in enumerate(joblist):
-            if '_anime' in color:
-                color = color.split('_')[0]
-                color = 'building'
-
-            retval['children'].append({"name": (self.COLOR_MAPPING[color], job_name)})
-            retval['children'][i]['children'] = []
-            retval['children'][i]['children'].append({"name": self.OPTION_LABEL_JOB_INFO})
-            retval['children'][i]['children'].append({"name": self.OPTION_LABEL_BUILD})
-            retval['children'][i]['children'].append({"name": self.OPTION_LABEL_LAST_BUILD_LOG})
-
-        return retval, joblist
+    def get_detailed_joblist(self):
+        return {a_job: self.jenkins.job_info(a_job) for (a_job, _) in self.jenkins.all_jobs()}
 
     def get_jobs_details(self, job_name):
-        return self.jenkins.last_build_console(job_name)
+        return self.jenkins.job_info(job_name)
 
     def get_last_build_log(self, job_name):
         return self.jenkins.last_build_console(job_name)
