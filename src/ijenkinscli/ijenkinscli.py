@@ -13,8 +13,8 @@ Options:
 
 """
 from JenkinsJobBrowser import JenkinsJobBrowser
-from docopt import docopt
 from JenkinsSettingsContainer import JenkinsSettingsContainer
+from docopt import docopt
 
 
 def get_proxy(args):
