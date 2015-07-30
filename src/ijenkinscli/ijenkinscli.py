@@ -3,9 +3,11 @@
 Usage:
   iJenkins <host> [(--user=<USER> --password=<PASSWORD>)][--proxy=<PROXY>][-ns]
   iJenkins -h | --help
+  iJenkins --version
 
 Options:
-  -h, --help               show this help message and exit
+  -h, --help               this.
+  --version                show version
   -u USER, --user=USER     username
   -p PWD, --password=PWD   password or API token
   -n, --no-color           do not use colored output
@@ -48,7 +50,7 @@ def get_auth(args):
 
 
 def startup():
-    options = docopt(__doc__, version='iJenkinsCLI 0.0.1-docopt')
+    options = docopt(__doc__, version='iJenkinsCLI 0.1.0')
     jenkins_settings = JenkinsSettingsContainer(options['<host>'],
                                                 get_auth(options),
                                                 get_proxy(options),

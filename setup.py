@@ -1,7 +1,13 @@
 from setuptools import setup, find_packages
 
+# Determine version
+import os
+version_file = os.path.realpath(__file__)
+version_file = os.path.join(version_file[:version_file.rfind("/")], "VERSION")
+version = open(version_file).read().strip()
+
 setup(name='iJenkinsCLI',
-      version='0.0.1',
+      version=version,
       description='''
                   An interactive CLI for Jenkins.
                   ''',
