@@ -41,6 +41,15 @@ class VimBindingTreeListBox(urwid.TreeListBox):
     def enable_keys(self):
         self.keypress = self.old_keypress
 
+    def focus_home(self, size):
+        '''
+        Override so that we do not select the non selectable root node with the
+        home key.
+        '''
+        _, pos = self.body.get_focus()
+        rootnode = pos.get_root().get_first_child()
+        self.change_focus(size, rootnode)
+
 
 class ConsoleOutputPager(urwid.Terminal):
 

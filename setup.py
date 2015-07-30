@@ -14,7 +14,7 @@ setup(name='iJenkinsCLI',
 
       setup_requires=['nose>=1.3', 'coverage'],
 
-      install_requires=['docopt', 'urwid', 'autojenkins>1.0.0'],
+      install_requires=['docopt', 'urwid', 'autojenkins==1.0.0'],
 
 
       packages=find_packages('src'),

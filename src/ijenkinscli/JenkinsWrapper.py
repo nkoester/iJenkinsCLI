@@ -7,7 +7,7 @@ import collections
 from itertools import izip as zip, count
 import pprint
 
-import autojenkins
+from AutoJenkinsFixed import Jenkins
 
 
 class JenkinsWrapper(object):
@@ -27,10 +27,10 @@ class JenkinsWrapper(object):
 
     def update_jenkins(self, settings):
         self.settings = settings
-        self.jenkins = autojenkins.Jenkins(self.settings.host,
-                                           proxies=self.settings.proxies,
-                                           auth=self.settings.auth,
-                                           verify_ssl_cert=self.settings.ssl_verification)
+        self.jenkins = Jenkins(self.settings.host,
+                               proxies=self.settings.proxies,
+                               auth=self.settings.auth,
+                               verify_ssl_cert=self.settings.ssl_verification)
 
     def get_detailed_joblist(self, status_function):
 
