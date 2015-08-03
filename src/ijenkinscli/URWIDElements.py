@@ -15,6 +15,9 @@ class VimBindingTreeListBox(urwid.TreeListBox):
         self.x = x
 
     def keypress(self, size, key):
+        '''
+        Extended keypress to allow vim like bindings such as hjkl and ctrl+u/d.
+        '''
         if key is 'j':
             return urwid.TreeListBox.keypress(self, size, 'down')
         elif key is 'k':
@@ -23,22 +26,46 @@ class VimBindingTreeListBox(urwid.TreeListBox):
             return urwid.TreeListBox.keypress(self, size, 'right')
         elif key is 'h':
             return urwid.TreeListBox.keypress(self, size, '-')
+
+        elif key in ('ctrl d',):
+            # we're lazy. push down 10 times...
+            for i in range(0,9):
+                urwid.TreeListBox.keypress(self, size, 'down')
+            return urwid.TreeListBox.keypress(self, size, 'down')
+        elif key in ('ctrl u',):
+            # we're lazy. push up 10 times...
+            for i in range(0,9):
+                urwid.TreeListBox.keypress(self, size, 'up')
+            return urwid.TreeListBox.keypress(self, size, 'up')
+
         elif key is 'left':
+            # we want to use left and right to expand/collapse, not 
+            # to navigate the tree...
             return urwid.TreeListBox.keypress(self, size, '-')
+
         else:
             return urwid.TreeListBox.keypress(self, size, key)
 
     def void_keypress(self, size, key):
-        if key in ('up', 'down', 'left', 'right', '+', '-'):
+        '''
+        Dummy keypress method doing nothing.
+        '''
+        if key in ('up', 'down', 'left', 'right', 'ctrl d', 'ctrl u', '+', '-'):
             return True
         else:
             return urwid.TreeListBox.keypress(self, size, key)
 
     def disable_keys(self):
+        '''
+        Helper to disable keys when in search mode.
+        '''
         self.old_keypress = self.keypress
         self.keypress = self.void_keypress
 
     def enable_keys(self):
+        '''
+        Helper to restore keys when exiting search mode.
+        '''
         self.keypress = self.old_keypress
 
     def focus_home(self, size):
@@ -53,16 +80,32 @@ class VimBindingTreeListBox(urwid.TreeListBox):
 
 class ConsoleOutputPager(urwid.Terminal):
 
-    def __init__(self, exit_function, content, main_loop):
+    '''
+    Widget class to display large amounts of texts.
+    '''
 
+    def __init__(self, exit_function, content, main_loop, pager_command="less -R -N -i +G"):
+        '''
+        Creates a temporary file and writes the content to it. Afterwards, a
+        Terminal widget is opened and the pager_command is executed to open this
+        file. Provides a keypress override for 'esc', 'q' and 'Q' which will
+        execute the provided exit_function of you main application (e.g. a hide
+        pager function.)
+        '''
         self.exit_function = exit_function
-
         new_file = tempfile.NamedTemporaryFile(delete=False)
         new_file.write(str(content) + "\n")
         new_file.flush()
-        self.__super.__init__(["less", "-R", "-N", "-i", "+G", new_file.name], main_loop=main_loop)
+        command = pager_command.split(" ")
+        command.append(new_file.name)
+        self.__super.__init__(command, main_loop=main_loop)
 
     def keypress(self, size, key):
+        '''
+        Provides a keypress override for 'esc', 'q' and 'Q' which will
+        execute the provided exit_function of you main application (e.g. a hide
+        pager function.) All other keys are forwarded to the executed pager_command.
+        '''
         if key in ('esc', 'q', 'Q'):
             self.exit_function()
         else:
@@ -74,19 +117,19 @@ class ConsoleOutputPager(urwid.Terminal):
 class SearchBar(urwid.Edit):
 
     '''
-    A simple Edit widget which starts with a '/' and provides a the text
-    without this indicator when asked.
+    A simple Edit widget which starts with a '/' and provides a text retrieve
+    function without this indicator.
     '''
 
     def __init__(self):
         '''
-        Override superclass init to add a leading "/".
+        Override superclass init to add a leading '/'.
         '''
         self.__super.__init__("/")
 
     def get_search_term(self):
         '''
-        Returns the search string.
+        Returns the search string without the leading '/'.
         '''
         return self.get_text()[0][1:]
 

@@ -327,8 +327,10 @@ class JenkinsJobBrowser():
             self.show_search_bar()
             self.searchmode = True
 
-        elif k is 'f5':
+#        elif k in ('ctrl d',):
+#            self.print_status("wooop")
 
+        elif k is 'f5':
             self.reset_view()
             self.print_status("Refresh done.")
 
